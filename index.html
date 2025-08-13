@@ -78,41 +78,22 @@ function dedupHas(mod,s){ dedupInit(mod); return !!DEDUP[mod].set[s]; }
 function dedupAdd(mod,s,cap=50000){ dedupInit(mod); if(!DEDUP[mod].set[s]){ DEDUP[mod].set[s]=1; DEDUP[mod].list.push(s); if(DEDUP[mod].list.length>cap){const old=DEDUP[mod].list.shift(); delete DEDUP[mod].set[old];} save(DEDUPKEY,DEDUP);} }
 function dedupFindNew(mod,gen,sig,max=200){ for(let t=0;t<max;t++){ const it=gen(); const k=sig(it); if(!dedupHas(mod,k)){ dedupAdd(mod,k); return it; } } return gen(); }
 
-/************* Presets (definiert VOR Nutzung) *************/
+/************* Presets *************/
 const PRESETS={
-  trade:{ // Flow Traders – realistisch
-    label:'TradeSeq (Flow) 30/18',
-    n:30, seconds:18*60,
-    scoring:{correct:+1, wrong:0, skip:0},
-    target:22,
+  trade:{ label:'TradeSeq (Flow) 30/18', n:30, seconds:18*60, scoring:{correct:+1, wrong:0, skip:0}, target:22,
     weights:{AP:.30, GP:.12, FIBO:.10, GROWING_DIFF:.12, ALTERNATING:.10, INTERLEAVED:.10, QUADRATIC:.08, POW_OFFSET:.05, PRIME:.03},
-    allow_neg:true, allow_frac:false
-  },
-  blue:{ // Akuna
-    label:'BlueSeq (Akuna) 24/16',
-    n:24, seconds:16*60,
-    scoring:{correct:+1, wrong:0, skip:0},
-    target:18,
+    allow_neg:true, allow_frac:false },
+  blue:{  label:'BlueSeq (Akuna) 24/16', n:24, seconds:16*60, scoring:{correct:+1, wrong:0, skip:0}, target:18,
     weights:{AP:.32, GP:.12, FIBO:.12, GROWING_DIFF:.12, ALTERNATING:.10, INTERLEAVED:.10, QUADRATIC:.07, POW_OFFSET:.03, PRIME:.02},
-    allow_neg:true, allow_frac:false
-  },
-  brown:{ // Maven
-    label:'BrownSeq (Maven) 26/15',
-    n:26, seconds:15*60,
-    scoring:{correct:+1, wrong:0, skip:0},
-    target:22,
+    allow_neg:true, allow_frac:false },
+  brown:{ label:'BrownSeq (Maven) 26/15', n:26, seconds:15*60, scoring:{correct:+1, wrong:0, skip:0}, target:22,
     weights:{AP:.28, GP:.14, FIBO:.10, GROWING_DIFF:.12, ALTERNATING:.12, INTERLEAVED:.10, QUADRATIC:.08, POW_OFFSET:.04, PRIME:.02},
-    allow_neg:true, allow_frac:false
-  }
+    allow_neg:true, allow_frac:false }
 };
-
-// Tier-Ranges (Integer-only)
-const TIERS={
-  easy : {start:[0,100],     step:[-10,10],  factor:[-3,3], maxAbs:  500},
-  mid  : {start:[0,500],     step:[-25,25],  factor:[-4,4], maxAbs: 5000},
-  hard : {start:[-100,1000], step:[-50,50],  factor:[-5,5], maxAbs:10000}
-};
-const tierFor=(i,n)=> (i < Math.floor(n/3))? 'easy' : (i < Math.floor(2*n/3))? 'mid' : 'hard';
+const TIERS={ easy:{start:[0,100],step:[-10,10],factor:[-3,3],maxAbs:500},
+             mid :{start:[0,500],step:[-25,25],factor:[-4,4],maxAbs:5000},
+             hard:{start:[-100,1000],step:[-50,50],factor:[-5,5],maxAbs:10000}};
+const tierFor=(i,n)=> (i<Math.floor(n/3))?'easy':(i<Math.floor(2*n/3))?'mid':'hard';
 
 /************* UI helpers *************/
 function card(html=''){ const d=document.createElement('div'); d.className='card'; d.innerHTML=html; return d; }
@@ -128,8 +109,7 @@ function selectField(label,opts,onCh,val){
   w.innerHTML=`<label for="${id}">${label}</label><select id="${id}">${opts.map(([v,l])=>`<option value="${v}">${l}</option>`).join('')}</select>`;
   const el=$('select',w); el.value=val; el.addEventListener('change',e=>onCh(e.target.value)); return w;
 }
-function checkboxField(label,checked,onCh){ const w=document.createElement('div');
-  const id='c'+Math.random().toString(36).slice(2);
+function checkboxField(label,checked,onCh){ const w=document.createElement('div'); const id='c'+Math.random().toString(36).slice(2);
   w.innerHTML=`<label><input id="${id}" type="checkbox" ${checked?'checked':''}> ${label}</label>`;
   $('#'+id,w).addEventListener('change',e=>onCh(e.target.checked)); return w;
 }
@@ -198,8 +178,8 @@ function genGrowingDiff(tier){
 function genAlternating(tier){
   const R=TIERS[tier];
   const t0=rndInt(R.start[0],R.start[1])*sign();
-  let p=rndInt(2,Math.max(4,Math.min(12,Math.abs(TIERS[tier].step[1]))));
-  let q=rndInt(2,Math.max(4,Math.min(12,Math.abs(TIERS[tier].step[1]))));
+  let p=rndInt(2,12), q=rndInt(2,12);
+  if(p===0) p=2; if(q===0) q=3;
   const seq=[t0];
   for(let i=1;i<6;i++){
     const add = (i%2===1) ? p : -q;
@@ -213,13 +193,8 @@ function genInterleaved(tier){
   const a2=rndInt(R.start[0],R.start[1])*sign(), d2=rndInt(-10,10)||3;
   const seq=[];
   for(let i=0;i<6;i++){
-    if(i%2===0){ // even index (0-based)
-      const k=Math.floor(i/2);
-      seq.push(a1 + k*d1);
-    } else {
-      const k=Math.floor(i/2);
-      seq.push(a2 + k*d2);
-    }
+    if(i%2===0){ const k=Math.floor(i/2); seq.push(a1 + k*d1); }
+    else       { const k=Math.floor(i/2); seq.push(a2 + k*d2); }
   }
   return {type:'INTERLEAVED',params:{a1,d1,a2,d2}, seq, next:seq[5], ok:withinAbs(seq,R.maxAbs)};
 }
@@ -238,28 +213,19 @@ function genPowOffset(tier){
   const seq=[]; for(let i=startIdx;i<startIdx+6;i++){ seq.push((useCube? i*i*i : i*i) + k); }
   return {type:'POW_OFFSET',params:{cube:useCube,k,startIdx}, seq, next:seq[5], ok:withinAbs(seq,R.maxAbs)};
 }
-function primesUpTo(n){ const m=Math.ceil(n/Math.log(Math.max(3,n))); // quick bound
-  const res=[]; let x=2; function isP(v){ if(v<2) return false; for(let d=2; d*d<=v; d++) if(v%d===0) return false; return true; }
-  while(res.length<n){ if(isP(x)) res.push(x); x++; } return res;
-}
+function primesUpTo(n){ const res=[]; let x=2; function isP(v){ if(v<2) return false; for(let d=2; d*d<=v; d++) if(v%d===0) return false; return true; }
+  while(res.length<n){ if(isP(x)) res.push(x); x++; } return res; }
 function genPrime(tier){
   const base = tier==='easy'? 1 : (tier==='mid'? 4 : 8);
-  const p=primesUpTo(20); const start=rndInt(base,base+4); // choose index into primes array
+  const p=primesUpTo(40); const start=rndInt(base,base+4);
   const seq=[]; for(let i=0;i<6;i++) seq.push(p[start+i]);
   return {type:'PRIME',params:{start}, seq, next:seq[5], ok:true};
 }
-
-const GENERATORS={
-  AP:genAP, GP:genGP, FIBO:genFibo, GROWING_DIFF:genGrowingDiff, ALTERNATING:genAlternating,
-  INTERLEAVED:genInterleaved, QUADRATIC:genQuadratic, POW_OFFSET:genPowOffset, PRIME:genPrime
-};
-
+const GENERATORS={AP:genAP, GP:genGP, FIBO:genFibo, GROWING_DIFF:genGrowingDiff, ALTERNATING:genAlternating,
+  INTERLEAVED:genInterleaved, QUADRATIC:genQuadratic, POW_OFFSET:genPowOffset, PRIME:genPrime};
 function weightedPick(weights){
-  const entries=Object.entries(weights);
-  const sum=entries.reduce((a,[,w])=>a+w,0);
-  let r=Math.random()*sum;
-  for(const [k,w] of entries){ if((r-=w)<=0) return k; }
-  return entries[0][0];
+  const entries=Object.entries(weights); const sum=entries.reduce((a,[,w])=>a+w,0); let r=Math.random()*sum;
+  for(const [k,w] of entries){ if((r-=w)<=0) return k; } return entries[0][0];
 }
 
 /************* View: Sequences *************/
@@ -283,28 +249,32 @@ function viewSeq(root){
 
   function sigOf(item){ return `${item.type}|${JSON.stringify(item.params)}`; }
 
-  function generate(i){ // i = 0..n-1
+  // Vorab-Generator (stabilreihenfolge)
+  function generateOne(i){
     const tier=tierFor(i,cfg.n);
-    // Pick pattern by weights
     let item=null, tries=0;
     while(!item || !item.ok){
       const pat=weightedPick(cfg.weights || PRESETS.trade.weights);
       item = GENERATORS[pat](tier);
       if(++tries>50) break;
     }
-    // Rückfall, falls irgendwas schiefging
     if(!item || !item.ok) item=genAP(tier);
-    // dedup gegen bereits bekannte Signaturen
     return dedupFindNew('seq', ()=>item, sigOf, 200);
   }
 
   function run(){
+    // Items vorab erzeugen (damit Backlog stabil ist)
+    const items=[...Array(cfg.n)].map((_,i)=>generateOne(i));
+    const answered = Array(cfg.n).fill(null); // {user, ans, ms, correct, q, type}
+    const backlog=[];                         // Indizes offener (geskippt) Fragen
+
     const ui=card(); root.appendChild(ui);
     ui.innerHTML=`
       <div class="row" style="justify-content:space-between;align-items:center">
         <span class="pill">Preset: ${PRESETS[cfg.preset]?.label || 'custom'}</span>
         <span class="pill">Zeit: <span id="t" class="timer"></span></span>
         <span class="pill">Frage: <b id="qc">1</b> / ${cfg.n}</span>
+        <span class="pill linklike" id="openPill" title="Zur nächsten offenen Aufgabe springen">Offen: <b id="openCnt">0</b></span>
       </div>
       <div class="question" id="q"></div>
       <div class="row">
@@ -322,66 +292,137 @@ function viewSeq(root){
       </div>
       <div class="muted" id="info"></div>`;
 
-    const el={t:$('#t',ui),qc:$('#qc',ui),q:$('#q',ui),a:$('#a',ui),ok:$('#ok',ui),skip:$('#skip',ui),pause:$('#pause',ui),abort:$('#abort',ui),info:$('#info',ui),minus:$('#minus',ui)};
+    const el={t:$('#t',ui),qc:$('#qc',ui),q:$('#q',ui),a:$('#a',ui),ok:$('#ok',ui),skip:$('#skip',ui),
+              pause:$('#pause',ui),abort:$('#abort',ui),info:$('#info',ui),minus:$('#minus',ui),
+              openCnt:$('#openCnt',ui),openPill:$('#openPill',ui)};
+
     const totalMs=cfg.seconds*1000;
-    let i=0, correct=0, per=[], cur=null;
+    let i=0, curIdx=0, correct=0;
     let paused=false, pauseT=0, tStart=performance.now(), tPause=0, running=true;
     let qStart=now(), qPaused=0, qPauseStart=0;
 
-    function tick(){ let tNow=performance.now(); if(paused) tNow=tPause; const used=tNow-tStart-pauseT; const left=Math.max(0,totalMs-used); el.t.textContent=(left/1000).toFixed(1)+'s'; if(left<=0&&running){finish();return;} if(running) requestAnimationFrame(tick); }
-    function next(){ if(i>=cfg.n){ finish(); return; }
-      cur = generate(i);
-      el.q.textContent = cur.seq.slice(0,5).join(' , ')+' , ?';
-      el.a.value=''; el.a.focus(); el.qc.textContent=String(i+1);
-      el.info.textContent = 'Bewertung: +1 richtig, 0 sonst (Skip ohne Malus)';
+    function updateOpenPill(){ el.openCnt.textContent=String(backlog.length); }
+    function answeredCount(){ return answered.filter(x=>x!==null).length; }
+
+    function tick(){
+      let tNow=performance.now(); if(paused) tNow=tPause;
+      const used=tNow-tStart-pauseT; const left=Math.max(0,totalMs-used);
+      el.t.textContent=(left/1000).toFixed(1)+'s';
+      if(left<=0&&running){ finish(); return; }
+      if(running) requestAnimationFrame(tick);
+    }
+
+    function chooseNext(){
+      // Reihenfolge: zuerst normale Reihe bis N, danach offene
+      if(i < cfg.n){ curIdx = i; i++; return true; }
+      if(backlog.length>0){ curIdx = backlog[0]; return true; }
+      return false;
+    }
+
+    function show(){
+      const itm = items[curIdx];
+      el.q.textContent = itm.seq.slice(0,5).join(' , ')+' , ?';
+      el.a.value=''; el.a.focus();
+      el.qc.textContent = String(Math.min(cfg.n, answeredCount()+1));
+      el.info.textContent = 'Bewertung: +1 richtig, 0 sonst (Skip ohne Malus). Klicke „Offen“, um zu offenen Aufgaben zu springen.';
       qStart=now(); qPaused=0;
     }
+
+    function startNext(){
+      if(chooseNext()){ show(); }
+      else { finish(); }
+    }
+
     function submit(kind){
       const raw=el.a.value.trim();
       const user=(kind==='skip'||raw==='')?null:Number(raw.replace(',','.'));
-      const ok=(user!==null && Math.abs(user-cur.next)<1e-9);
-      if(ok) correct++;
+      const itm = items[curIdx];
+
+      if(user===null){
+        // Markiere als offen (nur falls noch nicht beantwortet & nicht schon im Backlog)
+        if(answered[curIdx]===null && !backlog.includes(curIdx)) backlog.push(curIdx);
+        updateOpenPill();
+        // Wenn diese Frage aus dem Backlog kommt: rotiere ans Ende
+        if(backlog[0]===curIdx){ backlog.push(backlog.shift()); }
+        startNext();
+        return;
+      }
+
       const ms=Math.round(now()-qStart - qPaused);
-      per.push({q:cur.seq.slice(0,5).join(' , '), user, ans:cur.next, correct:ok, ms, type:cur.type});
-      i++; next();
+      const ok=(Math.abs(user-itm.next)<1e-9);
+      answered[curIdx]={q:itm.seq.slice(0,5).join(' , '), user, ans:itm.next, correct:ok, ms, type:itm.type};
+      if(ok) correct++;
+
+      // Falls diese Frage im Backlog war → entfernen
+      const k=backlog.indexOf(curIdx); if(k>=0) backlog.splice(k,1);
+      updateOpenPill();
+
+      startNext();
     }
+
     function pause(){
       if(!paused){ paused=true; tPause=performance.now(); qPauseStart=now(); el.pause.textContent='Resume'; }
-      else { paused=false; pauseT += performance.now()-tPause; qPaused += now()-qPauseStart; el.pause.textContent='Pause'; requestAnimationFrame(tick); }
+      else { paused=false; pauseT+=performance.now()-tPause; qPaused+=now()-qPauseStart; el.pause.textContent='Pause'; requestAnimationFrame(tick); }
     }
+
     function abort(){ if(confirm('Ohne Speichern beenden?')){ running=false; ui.innerHTML='<div class="card">Abgebrochen – nicht gespeichert.</div>'; } }
+
     function finish(){
       running=false;
-      const avg = per.length? Math.round(per.reduce((a,x)=>a+x.ms,0)/per.length):0;
+      // Restliche offene (nie beantwortete) bleiben ohne Eintrag → als Skip ausgeben
+      const per=[];
+      for(let j=0;j<cfg.n;j++){
+        if(answered[j]) per.push(answered[j]);
+        else per.push({q:items[j].seq.slice(0,5).join(' , '), user:null, ans:items[j].next, correct:null, ms:'', type:items[j].type});
+      }
+      const answeredWithMs = per.filter(x=>typeof x.ms==='number');
+      const avg = answeredWithMs.length? Math.round(answeredWithMs.reduce((a,x)=>a+x.ms,0)/answeredWithMs.length):0;
       const stats={correct,total:cfg.n,avgMs:avg,score:correct};
       const readiness = clamp(Math.round((correct/(cfg.target||cfg.n))*100),0,200);
+
       pushSession({module:'seq', preset:cfg.preset, stats, perQuestion:per, settings:{...cfg}});
-      const rows=[["#","sequence","your","correct","ms","type"]];
-      per.forEach((x,j)=>rows.push([j+1,x.q,x.user==null?'':x.user,x.ans,x.ms,x.type]));
+      const rows=[["#","sequence","your","correct","ms","type","status"]];
+      per.forEach((x,j)=>rows.push([
+        j+1,x.q,x.user==null?'':x.user,x.ans,x.ms,x.type,
+        x.correct===true?'OK':(x.user===null?'SKIP':'X')
+      ]));
       const csv=rows.map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
-      const txt=per.map((x,j)=>`${j+1}. [${x.q}] -> your=${x.user==null?'':x.user} | correct=${x.ans} | ${x.correct?'OK':'X'} | ${x.ms}ms | ${x.type}`).join('\n');
+      const txt=per.map((x,j)=>`${j+1}. [${x.q}] -> your=${x.user==null?'':x.user} | correct=${x.ans} | ${x.correct===true?'OK':(x.user===null?'SKIP':'X')} | ${x.ms||''}ms | ${x.type}`).join('\n');
+
       ui.innerHTML=`<h3>Ergebnis</h3>
         <div class="row">
           <span class="pill">Richtig: <b class="ok">${stats.correct}</b> / ${stats.total}</span>
-          <span class="pill">Ø Zeit: <b>${fmtMs(avg)}</b></span>
+          <span class="pill">Ø Zeit (nur beantwortet): <b>${fmtMs(stats.avgMs)}</b></span>
           <span class="pill">Ready: <b>${readiness}%</b> (Ziel ${cfg.target})</span>
         </div>
         <div class="row"><button class="btn" id="dlCsv">Download CSV</button><button class="btn ghost" id="dlTxt">Download TXT</button></div>
-        ${table(per.map((x,idx)=>[idx+1,x.q,x.user==null?'—':x.user,x.ans,(x.ms/1000).toFixed(2)+'s',x.type,x.correct?'✅':'❌']),['#','Sequenz','Deine','Korrekt','Zeit','Typ','OK'])}`;
+        ${table(per.map((x,idx)=>[
+          idx+1,x.q,x.user==null?'—':x.user,x.ans,(x.ms? (x.ms/1000).toFixed(2)+'s':''),
+          x.type, x.correct===true?'✅':(x.user===null?'⏭':'❌')
+        ]),['#','Sequenz','Deine','Korrekt','Zeit','Typ','OK'])}`;
+
       $('#dlCsv',ui).onclick=()=>dl('seq_'+new Date().toISOString().replace(/[:.]/g,'-')+'.csv',csv,'text/csv');
       $('#dlTxt',ui).onclick=()=>dl('seq_'+new Date().toISOString().replace(/[:.]/g,'-')+'.txt',txt,'text/plain');
       render();
     }
 
+    // Events
     el.ok.onclick=()=>submit('ok');
     el.skip.onclick=()=>submit('skip');
     el.pause.onclick=pause;
     el.abort.onclick=abort;
     el.minus.onclick=()=>{ if(!el.a.value.startsWith('-')) el.a.value='-'+el.a.value; el.a.focus(); const pos=el.a.value.length; el.a.setSelectionRange(pos,pos); };
     el.a.addEventListener('keydown',e=>{ if(e.key==='Enter') submit('ok'); });
-    el.a.addEventListener('input',()=>{ if(!cfg.auto) return; const raw=el.a.value.trim(); if(!raw) return; const v=Number(raw.replace(',','.')); if(Math.abs(v-(cur?.next??NaN))<1e-9) submit('ok'); });
+    el.a.addEventListener('input',()=>{ if(!cfg.auto) return; const raw=el.a.value.trim(); if(!raw) return; const v=Number(raw.replace(',','.')); const need=items[curIdx].next; if(Math.abs(v-need)<1e-9) submit('ok'); });
+    el.openPill.onclick=()=>{ // springe direkt zur nächsten offenen
+      if(backlog.length===0) return;
+      curIdx = backlog[0];
+      show();
+    };
 
-    requestAnimationFrame(tick); next();
+    updateOpenPill();
+    requestAnimationFrame(tick);
+    startNext();
   }
 }
 
@@ -405,13 +446,12 @@ function viewStats(root){
     s.stats.score ?? '—',
     `<span class="linklike" data-idx="${DB.sessions.indexOf(s)}">Details</span>`
   ]);
-  // Spalte 5 (Index 5) raw rendern, damit der Link klickbar ist
   el.insertAdjacentHTML('beforeend', table(rows,['#','Datum','Richtig','Ø Zeit','Score','Session'], [5]));
   root.appendChild(el);
   el.addEventListener('click',ev=>{
     const t=ev.target.closest('.linklike'); if(!t) return;
     const idx=+t.dataset.idx; const s=DB.sessions[idx];
-    const txt=(s?.perQuestion||[]).map((x,j)=>`${j+1}. [${x.q}] -> your=${x.user==null?'':x.user} | correct=${x.ans} | ${x.correct?'OK':'X'} | ${x.ms}ms | ${x.type}`).join('\n');
+    const txt=(s?.perQuestion||[]).map((x,j)=>`${j+1}. [${x.q}] -> your=${x.user==null?'':x.user} | correct=${x.ans} | ${(x.correct===true?'OK':(x.user===null?'SKIP':'X'))} | ${x.ms||''}ms | ${x.type}`).join('\n');
     const url=URL.createObjectURL(new Blob([txt],{type:'text/plain'}));
     const a=document.createElement('a'); a.href=url; a.download='session_'+new Date(s.date).toISOString().replace(/[:.]/g,'-')+'.txt'; a.click(); URL.revokeObjectURL(url);
   });
